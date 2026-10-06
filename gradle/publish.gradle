@@ -1,13 +1,13 @@
 apply plugin: 'me.modmuss50.mod-publish-plugin'
 
 def envFile = rootProject.file('.env')
-def environment = envFile.exists() ? envFile.readLines().findResults { line ->
+def dotenvValues = envFile.exists() ? envFile.readLines().findResults { line ->
     def entry = line.split('=', 2)
     entry.length == 2 && !line.trim().startsWith('#') ?
         [(entry[0].trim()): entry[1].trim()] : null
 }.collectEntries() : [:]
 def secret = { key ->
-    project.findProperty(key) ?: System.getenv(key) ?: environment[key] ?: System.getProperty(key) ?: ''
+    project.findProperty(key) ?: System.getenv(key) ?: dotenvValues[key] ?: System.getProperty(key) ?: ''
 }
 def curseforgeProject = (project.findProperty('curseforge_id') ?: '').toString().trim()
 def modrinthProject = (project.findProperty('modrinth_id') ?: '').toString().trim()
@@ -45,6 +45,7 @@ publishMods {
             projectId = modrinthProject
             accessToken = secret('MODRINTH_TOKEN')
             minecraftVersions.addAll(supportedMinecraft)
+            environment = CLIENT_ONLY
         }
     }
 }
