@@ -1,0 +1,26 @@
+import io.github.brandonitaly.packaging.UniversalJar
+
+def allUniversal = tasks.register('universalJar') {
+    group = 'build'
+    description = 'Builds one combined Fabric/NeoForge jar for each Minecraft version.'
+}
+def publishUniversal = tasks.register('publishMods') {
+    group = 'publishing'
+    description = 'Publishes the combined Fabric/NeoForge jar for every supported Minecraft version.'
+}
+rootProject.childProjects.values().findAll { it.name.endsWith('-fabric') }.each { fabric ->
+    def minecraftVersion = fabric.name - '-fabric'
+    def neoForge = project(":${minecraftVersion}-neoforge")
+    def fabricJarTask = minecraftVersion.startsWith('1.') ? 'remapJar' : 'jar'
+    def universal = tasks.register("universalJar${minecraftVersion.replace('.', '_')}", UniversalJar) {
+        group = 'build'
+        dependsOn "${fabric.path}:${fabricJarTask}", "${neoForge.path}:jar"
+        fabricJar.set(providers.provider { fabric.tasks.named(fabricJarTask).get().archiveFile.get() })
+        neoForgeJar.set(providers.provider { neoForge.tasks.named('jar').get().archiveFile.get() })
+        outputJar.set(layout.buildDirectory.file(providers.gradleProperty('mod_version').map {
+            "libs/${it}/F3Backport-${minecraftVersion}-${it}.jar"
+        }))
+    }
+    allUniversal.configure { dependsOn universal }
+    publishUniversal.configure { dependsOn "${fabric.path}:publishMods" }
+}

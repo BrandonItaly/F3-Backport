@@ -1,0 +1,8 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "io.github.brandonitaly.f3backport.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": ["DebugScreenOverlayMixin"],
+  "injectors": {"defaultRequire": 1}
+}

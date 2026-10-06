@@ -1,0 +1,27 @@
+# gradle
+.gradle/
+build/
+out/
+classes/
+run/
+versions/
+
+# kotlin
+.kotlin/
+
+# vscode
+.settings/
+.vscode/
+bin/
+.classpath
+.project
+
+# idea
+.idea/
+
+# secrets
+.env
+
+.reference/
+
+*.log

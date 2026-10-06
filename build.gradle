@@ -1,0 +1,76 @@
+plugins {
+    id 'base'
+    id 'me.modmuss50.mod-publish-plugin' version '2.2.0' apply false
+}
+
+def loader = property('loom.platform')
+def isFabric = loader == 'fabric'
+def unobfuscated = stonecutter.eval(stonecutter.current.version, '>=26.1')
+if (isFabric) {
+    apply plugin: unobfuscated ? 'net.fabricmc.fabric-loom' : 'net.fabricmc.fabric-loom-remap'
+} else {
+    apply plugin: 'net.neoforged.moddev'
+}
+base.archivesName = archives_base_name
+version = "${stonecutter.current.version}-${mod_version}-${loader}"
+group = maven_group
+
+def javaRelease = unobfuscated ? 25 : 21
+java {
+    withSourcesJar()
+    sourceCompatibility = JavaVersion.toVersion(javaRelease)
+    targetCompatibility = sourceCompatibility
+}
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release = javaRelease
+}
+repositories { mavenCentral() }
+if (unobfuscated && isFabric) {
+    configurations {
+        implementation.extendsFrom(modImplementation)
+        api.extendsFrom(modApi)
+        compileOnly.extendsFrom(modCompileOnly)
+        runtimeOnly.extendsFrom(modRuntimeOnly)
+    }
+}
+dependencies {
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.11.4'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.11.4'
+    if (isFabric) {
+        minecraft "com.mojang:minecraft:${stonecutter.current.version}"
+        if (!unobfuscated) mappings loom.officialMojangMappings()
+        modImplementation "net.fabricmc:fabric-loader:${fabric_loader_version}"
+    }
+}
+if (!isFabric) {
+    neoForge {
+        version = neoforge_version
+        mods { create(mod_id) { sourceSet project.sourceSets.main } }
+        runs { client { client() } }
+    }
+    sourceSets.test.compileClasspath += sourceSets.main.compileClasspath
+    sourceSets.test.runtimeClasspath += sourceSets.main.compileClasspath
+}
+tasks.withType(Test).configureEach { useJUnitPlatform() }
+processResources {
+    def mc = stonecutter.current.version
+    def parts = mc.tokenize('.')
+    def next = mc.startsWith('1.') ? "1.21.${parts[2].toInteger() + 1}" : "26.${parts[1].toInteger() + 1}"
+    def props = [version: mod_version, mod_id: mod_id, mod_name: mod_name,
+                 mod_description: mod_description, mod_license: mod_license,
+                 mod_authors: mod_authors, mc_version: mc, mc_version_next: next,
+                 java_version: javaRelease, fabric_loader_version: isFabric ? fabric_loader_version : '']
+    inputs.properties(props)
+    exclude isFabric ? 'META-INF/neoforge.mods.toml' : 'fabric.mod.json'
+    filesMatching(['fabric.mod.json', 'META-INF/neoforge.mods.toml']) { expand props }
+}
+def releaseJar = tasks.named(isFabric && !unobfuscated ? 'remapJar' : 'jar')
+def buildJar = tasks.register('buildJar', Copy) {
+    from releaseJar.flatMap { it.archiveFile }
+    into rootProject.layout.buildDirectory.dir("libs/${mod_version}")
+}
+tasks.named('assemble') { dependsOn buildJar }
+
+if (isFabric) apply from: rootProject.file('gradle/publish.gradle')
+
